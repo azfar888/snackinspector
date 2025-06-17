@@ -1,29 +1,32 @@
 import os
-import base64
 import json
+import base64
 import requests
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import firebase_admin
-from firebase_admin import credentials, db
+from google.oauth2 import service_account
+from google.auth.transport.requests import Request
 
-# Setup Flask
+# Flask
 app = Flask(__name__)
 CORS(app)
 
-# 🔐 Decode service account from base64 env var
+# Decode service account key from base64
 b64_key = os.environ.get("GOOGLE_CREDENTIALS_B64")
 key_data = json.loads(base64.b64decode(b64_key).decode())
 
-# ✅ Initialize Firebase Admin using in-memory credentials
-cred = credentials.Certificate(key_data)
-firebase_admin.initialize_app(cred, {
-    'databaseURL': 'https://snackinspector-default-rtdb.asia-southeast1.firebasedatabase.app'
-})
+# Firebase Realtime DB
+FIREBASE_DB_URL = "https://snackinspector-default-rtdb.asia-southeast1.firebasedatabase.app"
 
-# Roboflow API config
-ROBOFLOW_API_KEY = "iSFhDbkkI8CDPGS14ib2"
+# Create Firebase access token
+SCOPES = ["https://www.googleapis.com/auth/firebase.database", "https://www.googleapis.com/auth/userinfo.email"]
+credentials = service_account.Credentials.from_service_account_info(key_data, scopes=SCOPES)
+credentials.refresh(Request())  # get token
+access_token = credentials.token
+
+# Roboflow
 ROBOFLOW_MODEL_ID = "snackinspector/2"
+ROBOFLOW_API_KEY = "iSFhDbkkI8CDPGS14ib2"
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -53,12 +56,13 @@ def predict():
             label = "UNKNOWN"
             confidence = 0
 
-        # 🔎 Look up ingredients in Firebase DB
-        ref = db.reference(f'ingredients/{label}')
-        data = ref.get()
+        # 🔁 Get ingredients from Firebase Realtime DB (using access token)
+        headers = {"Authorization": f"Bearer {access_token}"}
+        fb_res = requests.get(f"{FIREBASE_DB_URL}/ingredients/{label}.json", headers=headers)
+        data = fb_res.json() if fb_res.ok else {}
 
-        packaging = data.get('IngredientPackaging') if data else "Not available"
-        common = data.get('IngredientFriendly') if data else "Not available"
+        packaging = data.get("IngredientPackaging", "Not available")
+        common = data.get("IngredientFriendly", "Not available")
 
         return jsonify({
             'prediction': label,
@@ -71,6 +75,6 @@ def predict():
         print("🔥 ERROR:", e)
         return jsonify({'error': str(e)}), 500
 
-# 🚀 Render uses this as entrypoint
+# Run on Render
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000)
