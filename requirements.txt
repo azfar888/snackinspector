@@ -2,4 +2,4 @@ Flask
 flask-cors
 firebase-admin
 gunicorn
-git+https://github.com/roboflow/inference.git
+requests
