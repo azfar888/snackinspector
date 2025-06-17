@@ -15,6 +15,10 @@ if not firebase_admin._apps:
 firebase_admin.initialize_app(cred, {
     'databaseURL': 'https://snackinspector-default-rtdb.asia-southeast1.firebasedatabase.app'
 })
+# 🔧 Allow time skew (JWT workaround)
+from google.auth.transport.requests import Request
+from firebase_admin import _DEFAULT_APP_NAME
+firebase_admin.get_app(_DEFAULT_APP_NAME)._credential._clock_skew = 300
 ROBOFLOW_API_KEY = "iSFhDbkkI8CDPGS14ib2"
 ROBOFLOW_MODEL_ID = "snackinspector/2"
 
