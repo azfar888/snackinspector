@@ -11,11 +11,10 @@ CORS(app)
 
 # Firebase setup
 if not firebase_admin._apps:
-    cred = credentials.Certificate("serviceAccountKey.json")
-    firebase_admin.initialize_app(cred, {
-        'databaseURL': 'https://snackinspector-default-rtdb.asia-southeast1.firebasedatabase.app'
-    })
-
+   cred = credentials.Certificate("serviceAccountKey.json")
+firebase_admin.initialize_app(cred, {
+    'databaseURL': 'https://snackinspector-default-rtdb.asia-southeast1.firebasedatabase.app'
+})
 ROBOFLOW_API_KEY = "iSFhDbkkI8CDPGS14ib2"
 ROBOFLOW_MODEL_ID = "snackinspector/2"
 
