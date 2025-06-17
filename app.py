@@ -1,24 +1,27 @@
+import os
+import base64
+import json
 import requests
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import firebase_admin
 from firebase_admin import credentials, db
-import os
 
 # Setup Flask
 app = Flask(__name__)
 CORS(app)
 
-# Firebase setup
-if not firebase_admin._apps:
-   cred = credentials.Certificate("serviceAccountKey.json")
+# 🔐 Decode service account from base64 env var
+b64_key = os.environ.get("GOOGLE_CREDENTIALS_B64")
+key_data = json.loads(base64.b64decode(b64_key).decode())
+
+# ✅ Initialize Firebase Admin using in-memory credentials
+cred = credentials.Certificate(key_data)
 firebase_admin.initialize_app(cred, {
     'databaseURL': 'https://snackinspector-default-rtdb.asia-southeast1.firebasedatabase.app'
 })
-# 🔧 Allow time skew (JWT workaround)
-from google.auth.transport.requests import Request
-from firebase_admin import _DEFAULT_APP_NAME
-firebase_admin.get_app(_DEFAULT_APP_NAME)._credential._clock_skew = 300
+
+# Roboflow API config
 ROBOFLOW_API_KEY = "iSFhDbkkI8CDPGS14ib2"
 ROBOFLOW_MODEL_ID = "snackinspector/2"
 
@@ -50,6 +53,7 @@ def predict():
             label = "UNKNOWN"
             confidence = 0
 
+        # 🔎 Look up ingredients in Firebase DB
         ref = db.reference(f'ingredients/{label}')
         data = ref.get()
 
@@ -67,7 +71,6 @@ def predict():
         print("🔥 ERROR:", e)
         return jsonify({'error': str(e)}), 500
 
-# Render entrypoint
+# 🚀 Render uses this as entrypoint
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000)
-
