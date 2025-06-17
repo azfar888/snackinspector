@@ -1,6 +1,6 @@
+import requests
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from inference_sdk import InferenceHTTPClient
 import firebase_admin
 from firebase_admin import credentials, db
 import os
@@ -9,17 +9,15 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-# Roboflow setup
-ROBOFLOW_MODEL_ID = "snackinspector/2"  # Change if needed
-ROBOFLOW_API_KEY = "iSFhDbkkI8CDPGS14ib2"
-client = InferenceHTTPClient(api_url="https://detect.roboflow.com", api_key=ROBOFLOW_API_KEY)
-
 # Firebase setup
 if not firebase_admin._apps:
     cred = credentials.Certificate("snackinspector-firebase-adminsdk-fbsvc-2ea6eaee79.json")
     firebase_admin.initialize_app(cred, {
         'databaseURL': 'https://snackinspector-default-rtdb.asia-southeast1.firebasedatabase.app'
     })
+
+ROBOFLOW_API_KEY = "iSFhDbkkI8CDPGS14ib2"
+ROBOFLOW_MODEL_ID = "snackinspector/2"
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -28,11 +26,18 @@ def predict():
             return jsonify({'error': 'No file uploaded'}), 400
 
         file = request.files['file']
-        path = os.path.join('temp', file.filename)
+        filepath = os.path.join('temp', file.filename)
         os.makedirs('temp', exist_ok=True)
-        file.save(path)
+        file.save(filepath)
 
-        result = client.infer(path, model_id=ROBOFLOW_MODEL_ID)
+        with open(filepath, 'rb') as image_file:
+            response = requests.post(
+                f"https://detect.roboflow.com/{ROBOFLOW_MODEL_ID}?api_key={ROBOFLOW_API_KEY}",
+                files={"file": image_file},
+                data={"confidence": "0.5", "overlap": "0.3"}
+            )
+
+        result = response.json()
 
         if 'predictions' in result and len(result['predictions']) > 0:
             raw_label = result['predictions'][0]['class']
@@ -59,6 +64,7 @@ def predict():
         print("🔥 ERROR:", e)
         return jsonify({'error': str(e)}), 500
 
-# Tell Render how to start the app
+# Render entrypoint
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000)
+
