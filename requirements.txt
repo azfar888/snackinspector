@@ -1,5 +1,5 @@
 Flask
 flask-cors
 firebase-admin
-inference
 gunicorn
+git+https://github.com/roboflow/inference.git
